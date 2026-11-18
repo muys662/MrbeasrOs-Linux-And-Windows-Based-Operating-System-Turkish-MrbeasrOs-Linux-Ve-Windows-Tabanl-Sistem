@@ -1,0 +1,85 @@
+name: Mrbeasr OS 1.0 Tam Kurulum
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Depoyu Cek
+        uses: actions/checkout@v4
+
+      - name: Araclari Kur
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y live-build debootstrap debian-archive-keyring
+          sudo ln -sf /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/bookworm
+
+      - name: Mrbeasr OS Derle
+        run: |
+          MIRROR="http://deb.""debian.org/debian/"
+          lb config --mode debian --architecture amd64 --distribution bookworm \
+            --archive-areas "main contrib non-free non-free-firmware" \
+            --mirror-bootstrap "$MIRROR" --mirror-chroot "$MIRROR" --mirror-binary "$MIRROR" \
+            --binary-images iso-hybrid --debian-installer live \
+            --iso-application "Mrbeasr OS" --iso-publisher "Mrbeasr" --iso-volume "Mrbeasr OS 1.0"
+
+          mkdir -p config/package-lists config/includes.chroot/etc/default config/includes.chroot/etc/lightdm \
+            config/includes.chroot/usr/lib config/includes.chroot/usr/share/backgrounds/mrbeasr \
+            config/includes.chroot/usr/share/pixmaps config/includes.chroot/usr/share/mrbeasr-welcome \
+            config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml config/includes.chroot/etc/xdg/autostart \
+            config/bootloaders/grub-pc config/includes.chroot/boot/grub config/hooks/live \
+            config/includes.chroot/usr/share/plymouth/themes/mrbeasr
+
+          echo -e "task-xfce-desktop\nneofetch\nlightdm\nlightdm-gtk-greeter\nplymouth\nplymouth-themes\nfirefox-esr" > config/package-lists/mrbeasr.list.chroot
+
+          if [ -f "boot.png" ]; then
+            cp boot.png config/bootloaders/grub-pc/splash.png
+            cp boot.png config/includes.chroot/boot/grub/splash.png
+            cp boot.png config/includes.chroot/usr/share/backgrounds/mrbeasr/default.png
+            cp boot.png config/includes.chroot/usr/share/pixmaps/mrbeasr-logo.png
+            cp boot.png config/includes.chroot/usr/share/plymouth/themes/mrbeasr/boot.png
+            echo -e '[Plymouth Theme]\nName=Mrbeasr\nModuleName=script\n[script]\nImageDir=/usr/share/plymouth/themes/mrbeasr\nScriptFile=/usr/share/plymouth/themes/mrbeasr/mrbeasr.script' > config/includes.chroot/usr/share/plymouth/themes/mrbeasr/mrbeasr.plymouth
+            echo -e 'wallpaper_image = Image("boot.png");\nwallpaper_sprite = Sprite(wallpaper_image.Scale(Window.GetWidth(), Window.GetHeight()));\nwallpaper_sprite.SetZ(-100);' > config/includes.chroot/usr/share/plymouth/themes/mrbeasr/mrbeasr.script
+            echo -e '#!/bin/sh\nplymouth-set-default-theme -R mrbeasr || true' > config/hooks/live/01-mrbeasr.hook.chroot
+            chmod +x config/hooks/live/01-mrbeasr.hook.chroot
+          fi
+
+          echo -e 'PRETTY_NAME="Mrbeasr OS 1.0"\nNAME="Mrbeasr OS"\nVERSION_ID="1.0"\nVERSION="1.0 (Mrbeasr)"\nVERSION_CODENAME=mrbeasr\nID=mrbeasr\nID_LIKE=debian' > config/includes.chroot/etc/os-release
+          cp config/includes.chroot/etc/os-release config/includes.chroot/usr/lib/os-release
+          echo "mrbeasr" > config/includes.chroot/etc/hostname
+          echo 'GRUB_DISTRIBUTOR="Mrbeasr OS"' > config/includes.chroot/etc/default/grub
+          echo -e '[greeter]\nbackground=/usr/share/backgrounds/mrbeasr/default.png\nlogo=/usr/share/pixmaps/mrbeasr-logo.png\ntheme-name=Adwaita-dark' > config/includes.chroot/etc/lightdm/lightdm-gtk-greeter.conf
+
+          cat << 'EOF' > config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <channel name="xfce4-desktop" version="1.0">
+            <property name="backdrop" type="empty"><property name="screen0" type="empty"><property name="monitor0" type="empty"><property name="workspace0" type="empty">
+              <property name="last-image" type="string" value="/usr/share/backgrounds/mrbeasr/default.png"/>
+            </property></property></property></property>
+          </channel>
+          EOF
+
+          cat << 'EOF' > config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <channel name="xfce4-panel" version="1.0">
+            <property name="plugins" type="empty"><property name="plugin-1" type="string" value="applicationsmenu">
+              <property name="button-icon" type="string" value="/usr/share/pixmaps/mrbeasr-logo.png"/>
+              <property name="button-title" type="string" value="Mrbeasr"/>
+            </property></property>
+          </channel>
+          EOF
+
+          echo '<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Mrbeasr OS 1.0</title></head><body style="background:#0f172a;color:#f8fafc;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;"><div style="background:#1e293b;padding:40px;border-radius:16px;border:1px solid #38bdf8;max-width:650px;"><h1 style="color:#38bdf8;">Mrbeasr OS 1.0 Hos Geldiniz!</h1><p>Debian tabanli ozel isletim sisteminiz hazir. Terminali acip <b>neofetch</b> yazarak sistem kimliginizi inceleyebilirsiniz.</p></div></body></html>' > config/includes.chroot/usr/share/mrbeasr-welcome/index.html
+          echo -e '[Desktop Entry]\nType=Application\nName=Mrbeasr OS\nExec=firefox-esr /usr/share/mrbeasr-welcome/index.html' > config/includes.chroot/etc/xdg/autostart/mrbeasr-welcome.desktop
+
+          sudo lb build
+
+      - name: ISO Dosyasini Kaydet
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mrbeasr-OS-1.0-amd64
+          path: live-image-amd64.hybrid.iso
