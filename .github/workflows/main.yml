@@ -20,21 +20,39 @@ jobs:
 
       - name: Mrbeasr OS Derle
         run: |
-          MIRROR="http://deb.""debian.org/debian/"
-          lb config --mode debian --architecture amd64 --distribution bookworm \
-            --archive-areas "main contrib non-free non-free-firmware" \
-            --mirror-bootstrap "$MIRROR" --mirror-chroot "$MIRROR" --mirror-binary "$MIRROR" \
-            --binary-images iso-hybrid --debian-installer live \
-            --iso-application "Mrbeasr OS" --iso-publisher "Mrbeasr" --iso-volume "Mrbeasr OS 1.0"
+          lb config --mode debian \
+            --architecture amd64 \
+            --distribution bookworm \
+            --archive-areas "main contrib non-free" \
+            --binary-images iso-hybrid \
+            --debian-installer live \
+            --iso-application "Mrbeasr OS" \
+            --iso-publisher "Mrbeasr" \
+            --iso-volume "Mrbeasr OS 1.0"
 
-          mkdir -p config/package-lists config/includes.chroot/etc/default config/includes.chroot/etc/lightdm \
-            config/includes.chroot/usr/lib config/includes.chroot/usr/share/backgrounds/mrbeasr \
-            config/includes.chroot/usr/share/pixmaps config/includes.chroot/usr/share/mrbeasr-welcome \
-            config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml config/includes.chroot/etc/xdg/autostart \
-            config/bootloaders/grub-pc config/includes.chroot/boot/grub config/hooks/live \
+          mkdir -p config/package-lists \
+            config/includes.chroot/etc/default \
+            config/includes.chroot/etc/lightdm \
+            config/includes.chroot/usr/lib \
+            config/includes.chroot/usr/share/backgrounds/mrbeasr \
+            config/includes.chroot/usr/share/pixmaps \
+            config/includes.chroot/usr/share/mrbeasr-welcome \
+            config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml \
+            config/includes.chroot/etc/xdg/autostart \
+            config/bootloaders/grub-pc \
+            config/includes.chroot/boot/grub \
+            config/hooks/live \
             config/includes.chroot/usr/share/plymouth/themes/mrbeasr
 
-          echo -e "task-xfce-desktop\nneofetch\nlightdm\nlightdm-gtk-greeter\nplymouth\nplymouth-themes\nfirefox-esr" > config/package-lists/mrbeasr.list.chroot
+          cat << 'EOF' > config/package-lists/mrbeasr.list.chroot
+          task-xfce-desktop
+          neofetch
+          lightdm
+          lightdm-gtk-greeter
+          plymouth
+          plymouth-themes
+          firefox-esr
+          EOF
 
           if [ -f "boot.png" ]; then
             cp boot.png config/bootloaders/grub-pc/splash.png
@@ -42,14 +60,47 @@ jobs:
             cp boot.png config/includes.chroot/usr/share/backgrounds/mrbeasr/default.png
             cp boot.png config/includes.chroot/usr/share/pixmaps/mrbeasr-logo.png
             cp boot.png config/includes.chroot/usr/share/plymouth/themes/mrbeasr/boot.png
-            echo -e '[Plymouth Theme]\nName=Mrbeasr\nModuleName=script\n[script]\nImageDir=/usr/share/plymouth/themes/mrbeasr\nScriptFile=/usr/share/plymouth/themes/mrbeasr/mrbeasr.script' > config/includes.chroot/usr/share/plymouth/themes/mrbeasr/mrbeasr.plymouth
-            echo -e 'wallpaper_image = Image("boot.png");\nwallpaper_sprite = Sprite(wallpaper_image.Scale(Window.GetWidth(), Window.GetHeight()));\nwallpaper_sprite.SetZ(-100);' > config/includes.chroot/usr/share/plymouth/themes/mrbeasr/mrbeasr.script
-            echo -e '#!/bin/sh\nplymouth-set-default-theme -R mrbeasr || true' > config/hooks/live/01-mrbeasr.hook.chroot
+
+            cat << 'EOF' > config/includes.chroot/usr/share/plymouth/themes/mrbeasr/mrbeasr.plymouth
+          [Plymouth Theme]
+          Name=Mrbeasr
+          Description=Mrbeasr OS Acilis Ekrani
+          ModuleName=script
+
+          [script]
+          ImageDir=/usr/share/plymouth/themes/mrbeasr
+          ScriptFile=/usr/share/plymouth/themes/mrbeasr/mrbeasr.script
+          EOF
+
+            cat << 'EOF' > config/includes.chroot/usr/share/plymouth/themes/mrbeasr/mrbeasr.script
+          wallpaper_image = Image("boot.png");
+          screen_width = Window.GetWidth();
+          screen_height = Window.GetHeight();
+          resized_wallpaper_image = wallpaper_image.Scale(screen_width, screen_height);
+          wallpaper_sprite = Sprite(resized_wallpaper_image);
+          wallpaper_sprite.SetZ(-100);
+          EOF
+
+            cat << 'EOF' > config/hooks/live/01-mrbeasr.hook.chroot
+          #!/bin/sh
+          if command -v plymouth-set-default-theme >/dev/null 2>&1; then
+              plymouth-set-default-theme -R mrbeasr || true
+          fi
+          EOF
             chmod +x config/hooks/live/01-mrbeasr.hook.chroot
           fi
 
-          echo -e 'PRETTY_NAME="Mrbeasr OS 1.0"\nNAME="Mrbeasr OS"\nVERSION_ID="1.0"\nVERSION="1.0 (Mrbeasr)"\nVERSION_CODENAME=mrbeasr\nID=mrbeasr\nID_LIKE=debian' > config/includes.chroot/etc/os-release
+          cat << 'EOF' > config/includes.chroot/etc/os-release
+          PRETTY_NAME="Mrbeasr OS 1.0"
+          NAME="Mrbeasr OS"
+          VERSION_ID="1.0"
+          VERSION="1.0 (Mrbeasr)"
+          VERSION_CODENAME=mrbeasr
+          ID=mrbeasr
+          ID_LIKE=debian
+          EOF
           cp config/includes.chroot/etc/os-release config/includes.chroot/usr/lib/os-release
+
           echo "mrbeasr" > config/includes.chroot/etc/hostname
           echo 'GRUB_DISTRIBUTOR="Mrbeasr OS"' > config/includes.chroot/etc/default/grub
           echo -e '[greeter]\nbackground=/usr/share/backgrounds/mrbeasr/default.png\nlogo=/usr/share/pixmaps/mrbeasr-logo.png\ntheme-name=Adwaita-dark' > config/includes.chroot/etc/lightdm/lightdm-gtk-greeter.conf
