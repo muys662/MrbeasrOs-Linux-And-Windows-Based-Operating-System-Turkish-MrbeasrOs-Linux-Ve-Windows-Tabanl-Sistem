@@ -12,39 +12,36 @@ jobs:
       - name: Depoyu Cek
         uses: actions/checkout@v4
 
-      - name: Araclari Kur
+      - name: Gercek Debian Ortaminda Mrbeasr OS Derle
         run: |
-          sudo apt-get update
-          sudo apt-get install -y live-build debootstrap debian-archive-keyring
-          sudo ln -sf /usr/share/debootstrap/scripts/sid /usr/share/debootstrap/scripts/bookworm
+          docker run --privileged --rm -v "$PWD:/work" -w /work debian:bookworm bash -c '
+            apt-get update && apt-get install -y live-build debootstrap xorriso isolinux syslinux-common
 
-      - name: Mrbeasr OS Derle
-        run: |
-          lb config --mode debian \
-            --architecture amd64 \
-            --distribution bookworm \
-            --archive-areas "main contrib non-free" \
-            --binary-images iso-hybrid \
-            --debian-installer live \
-            --iso-application "Mrbeasr OS" \
-            --iso-publisher "Mrbeasr" \
-            --iso-volume "Mrbeasr OS 1.0"
+            lb config --mode debian \
+              --architecture amd64 \
+              --distribution bookworm \
+              --archive-areas "main contrib non-free non-free-firmware" \
+              --binary-images iso-hybrid \
+              --debian-installer live \
+              --iso-application "Mrbeasr OS" \
+              --iso-publisher "Mrbeasr" \
+              --iso-volume "Mrbeasr OS 1.0"
 
-          mkdir -p config/package-lists \
-            config/includes.chroot/etc/default \
-            config/includes.chroot/etc/lightdm \
-            config/includes.chroot/usr/lib \
-            config/includes.chroot/usr/share/backgrounds/mrbeasr \
-            config/includes.chroot/usr/share/pixmaps \
-            config/includes.chroot/usr/share/mrbeasr-welcome \
-            config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml \
-            config/includes.chroot/etc/xdg/autostart \
-            config/bootloaders/grub-pc \
-            config/includes.chroot/boot/grub \
-            config/hooks/live \
-            config/includes.chroot/usr/share/plymouth/themes/mrbeasr
+            mkdir -p config/package-lists \
+              config/includes.chroot/etc/default \
+              config/includes.chroot/etc/lightdm \
+              config/includes.chroot/usr/lib \
+              config/includes.chroot/usr/share/backgrounds/mrbeasr \
+              config/includes.chroot/usr/share/pixmaps \
+              config/includes.chroot/usr/share/mrbeasr-welcome \
+              config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml \
+              config/includes.chroot/etc/xdg/autostart \
+              config/bootloaders/grub-pc \
+              config/includes.chroot/boot/grub \
+              config/hooks/live \
+              config/includes.chroot/usr/share/plymouth/themes/mrbeasr
 
-          cat << 'EOF' > config/package-lists/mrbeasr.list.chroot
+            cat << "EOF" > config/package-lists/mrbeasr.list.chroot
           task-xfce-desktop
           neofetch
           lightdm
@@ -54,14 +51,14 @@ jobs:
           firefox-esr
           EOF
 
-          if [ -f "boot.png" ]; then
-            cp boot.png config/bootloaders/grub-pc/splash.png
-            cp boot.png config/includes.chroot/boot/grub/splash.png
-            cp boot.png config/includes.chroot/usr/share/backgrounds/mrbeasr/default.png
-            cp boot.png config/includes.chroot/usr/share/pixmaps/mrbeasr-logo.png
-            cp boot.png config/includes.chroot/usr/share/plymouth/themes/mrbeasr/boot.png
+            if [ -f "boot.png" ]; then
+              cp boot.png config/bootloaders/grub-pc/splash.png
+              cp boot.png config/includes.chroot/boot/grub/splash.png
+              cp boot.png config/includes.chroot/usr/share/backgrounds/mrbeasr/default.png
+              cp boot.png config/includes.chroot/usr/share/pixmaps/mrbeasr-logo.png
+              cp boot.png config/includes.chroot/usr/share/plymouth/themes/mrbeasr/boot.png
 
-            cat << 'EOF' > config/includes.chroot/usr/share/plymouth/themes/mrbeasr/mrbeasr.plymouth
+              cat << "EOF" > config/includes.chroot/usr/share/plymouth/themes/mrbeasr/mrbeasr.plymouth
           [Plymouth Theme]
           Name=Mrbeasr
           Description=Mrbeasr OS Acilis Ekrani
@@ -72,7 +69,7 @@ jobs:
           ScriptFile=/usr/share/plymouth/themes/mrbeasr/mrbeasr.script
           EOF
 
-            cat << 'EOF' > config/includes.chroot/usr/share/plymouth/themes/mrbeasr/mrbeasr.script
+              cat << "EOF" > config/includes.chroot/usr/share/plymouth/themes/mrbeasr/mrbeasr.script
           wallpaper_image = Image("boot.png");
           screen_width = Window.GetWidth();
           screen_height = Window.GetHeight();
@@ -81,16 +78,16 @@ jobs:
           wallpaper_sprite.SetZ(-100);
           EOF
 
-            cat << 'EOF' > config/hooks/live/01-mrbeasr.hook.chroot
+              cat << "EOF" > config/hooks/live/01-mrbeasr.hook.chroot
           #!/bin/sh
           if command -v plymouth-set-default-theme >/dev/null 2>&1; then
               plymouth-set-default-theme -R mrbeasr || true
           fi
           EOF
-            chmod +x config/hooks/live/01-mrbeasr.hook.chroot
-          fi
+              chmod +x config/hooks/live/01-mrbeasr.hook.chroot
+            fi
 
-          cat << 'EOF' > config/includes.chroot/etc/os-release
+            cat << "EOF" > config/includes.chroot/etc/os-release
           PRETTY_NAME="Mrbeasr OS 1.0"
           NAME="Mrbeasr OS"
           VERSION_ID="1.0"
@@ -99,13 +96,13 @@ jobs:
           ID=mrbeasr
           ID_LIKE=debian
           EOF
-          cp config/includes.chroot/etc/os-release config/includes.chroot/usr/lib/os-release
+            cp config/includes.chroot/etc/os-release config/includes.chroot/usr/lib/os-release
 
-          echo "mrbeasr" > config/includes.chroot/etc/hostname
-          echo 'GRUB_DISTRIBUTOR="Mrbeasr OS"' > config/includes.chroot/etc/default/grub
-          echo -e '[greeter]\nbackground=/usr/share/backgrounds/mrbeasr/default.png\nlogo=/usr/share/pixmaps/mrbeasr-logo.png\ntheme-name=Adwaita-dark' > config/includes.chroot/etc/lightdm/lightdm-gtk-greeter.conf
+            echo "mrbeasr" > config/includes.chroot/etc/hostname
+            echo "GRUB_DISTRIBUTOR=\"Mrbeasr OS\"" > config/includes.chroot/etc/default/grub
+            printf "[greeter]\nbackground=/usr/share/backgrounds/mrbeasr/default.png\nlogo=/usr/share/pixmaps/mrbeasr-logo.png\ntheme-name=Adwaita-dark\n" > config/includes.chroot/etc/lightdm/lightdm-gtk-greeter.conf
 
-          cat << 'EOF' > config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
+            cat << "EOF" > config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <channel name="xfce4-desktop" version="1.0">
             <property name="backdrop" type="empty"><property name="screen0" type="empty"><property name="monitor0" type="empty"><property name="workspace0" type="empty">
@@ -114,7 +111,7 @@ jobs:
           </channel>
           EOF
 
-          cat << 'EOF' > config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+            cat << "EOF" > config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <channel name="xfce4-panel" version="1.0">
             <property name="plugins" type="empty"><property name="plugin-1" type="string" value="applicationsmenu">
@@ -124,10 +121,11 @@ jobs:
           </channel>
           EOF
 
-          echo '<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Mrbeasr OS 1.0</title></head><body style="background:#0f172a;color:#f8fafc;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;"><div style="background:#1e293b;padding:40px;border-radius:16px;border:1px solid #38bdf8;max-width:650px;"><h1 style="color:#38bdf8;">Mrbeasr OS 1.0 Hos Geldiniz!</h1><p>Debian tabanli ozel isletim sisteminiz hazir. Terminali acip <b>neofetch</b> yazarak sistem kimliginizi inceleyebilirsiniz.</p></div></body></html>' > config/includes.chroot/usr/share/mrbeasr-welcome/index.html
-          echo -e '[Desktop Entry]\nType=Application\nName=Mrbeasr OS\nExec=firefox-esr /usr/share/mrbeasr-welcome/index.html' > config/includes.chroot/etc/xdg/autostart/mrbeasr-welcome.desktop
+            echo "<!DOCTYPE html><html lang=\"tr\"><head><meta charset=\"UTF-8\"><title>Mrbeasr OS 1.0</title></head><body style=\"background:#0f172a;color:#f8fafc;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;\"><div style=\"background:#1e293b;padding:40px;border-radius:16px;border:1px solid #38bdf8;max-width:650px;\"><h1 style=\"color:#38bdf8;\">Mrbeasr OS 1.0 Hos Geldiniz!</h1><p>Debian tabanli ozel isletim sisteminiz hazir. Terminali acip <b>neofetch</b> yazarak sistem kimliginizi inceleyebilirsiniz.</p></div></body></html>" > config/includes.chroot/usr/share/mrbeasr-welcome/index.html
+            printf "[Desktop Entry]\nType=Application\nName=Mrbeasr OS\nExec=firefox-esr /usr/share/mrbeasr-welcome/index.html\n" > config/includes.chroot/etc/xdg/autostart/mrbeasr-welcome.desktop
 
-          sudo lb build
+            lb build
+          '
 
       - name: ISO Dosyasini Kaydet
         uses: actions/upload-artifact@v4
