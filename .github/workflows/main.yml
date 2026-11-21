@@ -1,4 +1,4 @@
-name: Mrbeasr OS 1.0 Tam Kurulum
+name: Mrbeasr OS 1.0 Tam Gorsel ve EXE
 
 on:
   workflow_dispatch:
@@ -15,14 +15,17 @@ jobs:
       - name: Gercek Debian Ortaminda Mrbeasr OS Derle
         run: |
           docker run --privileged --rm -v "$PWD:/work" -w /work debian:bookworm bash -c '
-            apt-get update && apt-get install -y live-build debootstrap xorriso isolinux syslinux-common
+            apt-get update && apt-get install -y live-build debootstrap xorriso isolinux syslinux-common imagemagick
 
+            # Boot ve Plymouth acilis logosu icin kesin grafik parametreleri
             lb config --mode debian \
               --architecture amd64 \
+              --architectures "amd64 i386" \
               --distribution bookworm \
               --archive-areas "main contrib non-free non-free-firmware" \
               --binary-images iso-hybrid \
               --debian-installer live \
+              --bootappend-live "boot=live components quiet splash video=1024x768" \
               --iso-application "Mrbeasr OS" \
               --iso-publisher "Mrbeasr" \
               --iso-volume "Mrbeasr OS 1.0"
@@ -34,13 +37,16 @@ jobs:
               config/includes.chroot/usr/share/backgrounds/mrbeasr \
               config/includes.chroot/usr/share/pixmaps \
               config/includes.chroot/usr/share/mrbeasr-welcome \
-              config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml \
+              config/includes.chroot/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml \
               config/includes.chroot/etc/xdg/autostart \
               config/bootloaders/grub-pc \
+              config/bootloaders/isolinux \
               config/includes.chroot/boot/grub \
               config/hooks/live \
-              config/includes.chroot/usr/share/plymouth/themes/mrbeasr
+              config/includes.chroot/usr/share/plymouth/themes/mrbeasr \
+              config/includes.chroot/usr/share/applications
 
+            # Masaustu ve Otomatik .EXE Calistirici (Wine) Paketleri
             cat << "EOF" > config/package-lists/mrbeasr.list.chroot
           task-xfce-desktop
           neofetch
@@ -49,14 +55,25 @@ jobs:
           plymouth
           plymouth-themes
           firefox-esr
+          wine
+          wine32:i386
+          wine64
+          winetricks
+          libwine
+          fonts-wine
           EOF
 
+            # Gorseli Tum Acilis ve Masaustu Katmanlarina Uyumlu Formata Cevir
             if [ -f "boot.png" ]; then
-              cp boot.png config/bootloaders/grub-pc/splash.png
-              cp boot.png config/includes.chroot/boot/grub/splash.png
-              cp boot.png config/includes.chroot/usr/share/backgrounds/mrbeasr/default.png
-              cp boot.png config/includes.chroot/usr/share/pixmaps/mrbeasr-logo.png
-              cp boot.png config/includes.chroot/usr/share/plymouth/themes/mrbeasr/boot.png
+              # 1. ISOLINUX ve GRUB Boot Menusu (24-bit saydamliksiz 640x480 PNG)
+              convert boot.png -resize 640x480! -background black -alpha remove -alpha off PNG24:config/bootloaders/isolinux/splash.png
+              cp config/bootloaders/isolinux/splash.png config/bootloaders/grub-pc/splash.png
+              cp config/bootloaders/isolinux/splash.png config/includes.chroot/boot/grub/splash.png
+
+              # 2. Plymouth Yukleme Ekrani, Kilit Ekrani ve Masaustu Duvar Kagidi
+              convert boot.png -background black -alpha remove -alpha off PNG24:config/includes.chroot/usr/share/backgrounds/mrbeasr/default.png
+              cp config/includes.chroot/usr/share/backgrounds/mrbeasr/default.png config/includes.chroot/usr/share/pixmaps/mrbeasr-logo.png
+              cp config/includes.chroot/usr/share/backgrounds/mrbeasr/default.png config/includes.chroot/usr/share/plymouth/themes/mrbeasr/boot.png
 
               cat << "EOF" > config/includes.chroot/usr/share/plymouth/themes/mrbeasr/mrbeasr.plymouth
           [Plymouth Theme]
@@ -77,18 +94,78 @@ jobs:
           wallpaper_sprite = Sprite(resized_wallpaper_image);
           wallpaper_sprite.SetZ(-100);
           EOF
+            fi
 
-              cat << "EOF" > config/hooks/live/01-mrbeasr.hook.chroot
+            # Cift Tiklanan Tum .EXE Dosyalarini Otomatik Wine ile Acma Ayari
+            cat << "EOF" > config/includes.chroot/usr/share/applications/wine-exe.desktop
+          [Desktop Entry]
+          Type=Application
+          Name=Windows EXE Calistirici (Mrbeasr)
+          Exec=wine %f
+          MimeType=application/x-ms-dos-executable;application/x-msi;application/x-msdownload;
+          NoDisplay=true
+          EOF
+
+            # Hem Gercek PC (monitor0) Hem VirtualBox (monitorVirtual1) Icin Masaustu Duvar Kagidi
+            cat << "EOF" > config/includes.chroot/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <channel name="xfce4-desktop" version="1.0">
+            <property name="backdrop" type="empty">
+              <property name="screen0" type="empty">
+                <property name="monitor0" type="empty">
+                  <property name="workspace0" type="empty">
+                    <property name="color-style" type="int" value="0"/>
+                    <property name="image-style" type="int" value="5"/>
+                    <property name="last-image" type="string" value="/usr/share/backgrounds/mrbeasr/default.png"/>
+                  </property>
+                </property>
+                <property name="monitorVirtual1" type="empty">
+                  <property name="workspace0" type="empty">
+                    <property name="color-style" type="int" value="0"/>
+                    <property name="image-style" type="int" value="5"/>
+                    <property name="last-image" type="string" value="/usr/share/backgrounds/mrbeasr/default.png"/>
+                  </property>
+                </property>
+              </property>
+            </property>
+          </channel>
+          EOF
+
+            # Sol Ust Kose "Mrbeasr" Baslat Menusu ve Logosu
+            cat << "EOF" > config/includes.chroot/etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <channel name="xfce4-panel" version="1.0">
+            <property name="plugins" type="empty">
+              <property name="plugin-1" type="string" value="applicationsmenu">
+                <property name="button-icon" type="string" value="/usr/share/pixmaps/mrbeasr-logo.png"/>
+                <property name="button-title" type="string" value="Mrbeasr"/>
+              </property>
+            </property>
+          </channel>
+          EOF
+
+            # Sistem Derlenirken Varsayilan Arka Planlari ve Plymouth Temasini Zorla Uygula
+            cat << "EOF" > config/hooks/live/01-mrbeasr.hook.chroot
           #!/bin/sh
           if command -v plymouth-set-default-theme >/dev/null 2>&1; then
               plymouth-set-default-theme -R mrbeasr || true
           fi
-          EOF
-              chmod +x config/hooks/live/01-mrbeasr.hook.chroot
-            fi
 
+          if [ -f "/usr/share/backgrounds/mrbeasr/default.png" ]; then
+              mkdir -p /usr/share/images/desktop-base /usr/share/backgrounds/xfce
+              cp /usr/share/backgrounds/mrbeasr/default.png /usr/share/images/desktop-base/default
+              cp /usr/share/backgrounds/mrbeasr/default.png /usr/share/backgrounds/xfce/xfce-verticals.png
+              cp /usr/share/backgrounds/mrbeasr/default.png /usr/share/backgrounds/xfce/xfce-teal.jpg
+              ln -sf /usr/share/backgrounds/mrbeasr/default.png /etc/alternatives/desktop-background
+          fi
+
+          update-desktop-database /usr/share/applications || true
+          EOF
+            chmod +x config/hooks/live/01-mrbeasr.hook.chroot
+
+            # Sistem Kimligi (Mrbeasr OS 1.0)
             cat << "EOF" > config/includes.chroot/etc/os-release
-          PRETTY_NAME="Mrbeasr OS 1.0"
+          PRETTY_NAME="Mrbeasr OS 1.0 (EXE Ready)"
           NAME="Mrbeasr OS"
           VERSION_ID="1.0"
           VERSION="1.0 (Mrbeasr)"
@@ -102,26 +179,8 @@ jobs:
             echo "GRUB_DISTRIBUTOR=\"Mrbeasr OS\"" > config/includes.chroot/etc/default/grub
             printf "[greeter]\nbackground=/usr/share/backgrounds/mrbeasr/default.png\nlogo=/usr/share/pixmaps/mrbeasr-logo.png\ntheme-name=Adwaita-dark\n" > config/includes.chroot/etc/lightdm/lightdm-gtk-greeter.conf
 
-            cat << "EOF" > config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml
-          <?xml version="1.0" encoding="UTF-8"?>
-          <channel name="xfce4-desktop" version="1.0">
-            <property name="backdrop" type="empty"><property name="screen0" type="empty"><property name="monitor0" type="empty"><property name="workspace0" type="empty">
-              <property name="last-image" type="string" value="/usr/share/backgrounds/mrbeasr/default.png"/>
-            </property></property></property></property>
-          </channel>
-          EOF
-
-            cat << "EOF" > config/includes.chroot/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
-          <?xml version="1.0" encoding="UTF-8"?>
-          <channel name="xfce4-panel" version="1.0">
-            <property name="plugins" type="empty"><property name="plugin-1" type="string" value="applicationsmenu">
-              <property name="button-icon" type="string" value="/usr/share/pixmaps/mrbeasr-logo.png"/>
-              <property name="button-title" type="string" value="Mrbeasr"/>
-            </property></property>
-          </channel>
-          EOF
-
-            echo "<!DOCTYPE html><html lang=\"tr\"><head><meta charset=\"UTF-8\"><title>Mrbeasr OS 1.0</title></head><body style=\"background:#0f172a;color:#f8fafc;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;\"><div style=\"background:#1e293b;padding:40px;border-radius:16px;border:1px solid #38bdf8;max-width:650px;\"><h1 style=\"color:#38bdf8;\">Mrbeasr OS 1.0 Hos Geldiniz!</h1><p>Debian tabanli ozel isletim sisteminiz hazir. Terminali acip <b>neofetch</b> yazarak sistem kimliginizi inceleyebilirsiniz.</p></div></body></html>" > config/includes.chroot/usr/share/mrbeasr-welcome/index.html
+            # Karsilama Ekrani
+            echo "<!DOCTYPE html><html lang=\"tr\"><head><meta charset=\"UTF-8\"><title>Mrbeasr OS 1.0</title></head><body style=\"background:#0f172a;color:#f8fafc;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center;\"><div style=\"background:#1e293b;padding:40px;border-radius:16px;border:1px solid #38bdf8;max-width:650px;\"><h1 style=\"color:#38bdf8;\">Mrbeasr OS 1.0 Hos Geldiniz!</h1><p>Windows (.exe) uygulamalari, ozel acilis ekraniniz ve masaustu tasariminiz hazir.</p></div></body></html>" > config/includes.chroot/usr/share/mrbeasr-welcome/index.html
             printf "[Desktop Entry]\nType=Application\nName=Mrbeasr OS\nExec=firefox-esr /usr/share/mrbeasr-welcome/index.html\n" > config/includes.chroot/etc/xdg/autostart/mrbeasr-welcome.desktop
 
             lb build
@@ -130,5 +189,5 @@ jobs:
       - name: ISO Dosyasini Kaydet
         uses: actions/upload-artifact@v4
         with:
-          name: Mrbeasr-OS-1.0-amd64
+          name: Mrbeasr-OS-1.0-Tam-Surum
           path: live-image-amd64.hybrid.iso
